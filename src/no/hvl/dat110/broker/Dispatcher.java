@@ -1,6 +1,7 @@
 package no.hvl.dat110.broker;
 
 import java.util.Set;
+import java.util.Stack;
 import java.util.Collection;
 
 import no.hvl.dat110.common.TODO;
@@ -89,9 +90,20 @@ public class Dispatcher extends Stopable {
 
 		String user = msg.getUser();
 
+		
 		Logger.log("onConnect:" + msg.toString());
-
+		
+		
+		
 		storage.addClientSession(user, connection);
+		Stack<Message> messages = storage.getBufferedMessages(user);
+		if(messages!= null) {
+			if(!messages.isEmpty()) {
+				messages.forEach(m -> storage.getSession(user).send(m));
+			}
+		}else{
+			storage.addMessageBuffer(user);
+		}
 
 	}
 
@@ -109,11 +121,11 @@ public class Dispatcher extends Stopable {
 	public void onCreateTopic(CreateTopicMsg msg) {
 
 		Logger.log("onCreateTopic:" + msg.toString());
-
+		storage.createTopic(msg.getTopic());
 		// TODO: create the topic in the broker storage
 		// the topic is contained in the create topic message
 
-		throw new UnsupportedOperationException(TODO.method());
+//		throw new UnsupportedOperationException(TODO.method());
 
 	}
 
@@ -123,8 +135,9 @@ public class Dispatcher extends Stopable {
 
 		// TODO: delete the topic from the broker storage
 		// the topic is contained in the delete topic message
+		storage.deleteTopic(msg.getTopic());
 		
-		throw new UnsupportedOperationException(TODO.method());
+//		throw new UnsupportedOperationException(TODO.method());
 	}
 
 	public void onSubscribe(SubscribeMsg msg) {
@@ -133,8 +146,8 @@ public class Dispatcher extends Stopable {
 
 		// TODO: subscribe user to the topic
 		// user and topic is contained in the subscribe message
-		
-		throw new UnsupportedOperationException(TODO.method());
+		storage.addSubscriber(msg.getUser(), msg.getTopic());
+//		throw new UnsupportedOperationException(TODO.method());
 
 	}
 
@@ -144,8 +157,8 @@ public class Dispatcher extends Stopable {
 
 		// TODO: unsubscribe user to the topic
 		// user and topic is contained in the unsubscribe message
-		
-		throw new UnsupportedOperationException(TODO.method());
+		storage.removeSubscriber(msg.getUser(), msg.getTopic());
+//		throw new UnsupportedOperationException(TODO.method());
 	}
 
 	public void onPublish(PublishMsg msg) {
@@ -155,8 +168,20 @@ public class Dispatcher extends Stopable {
 		// TODO: publish the message to clients subscribed to the topic
 		// topic and message is contained in the subscribe message
 		// messages must be sent used the corresponding client session objects
+	
 		
-		throw new UnsupportedOperationException(TODO.method());
+//		storage.getSubscribers(msg.getTopic()).forEach(t -> storage.getSession(t).send(msg));
+		Set<String> subs = storage.getSubscribers(msg.getTopic());
+		for(String sub: subs) {
+			if(storage.getSession(sub)!=null) {
+				storage.getSession(sub).send(msg);
+			}else {
+				storage.addMessageToBuffer(sub, msg);
+			}
+		}
+		
+		
+		//throw new UnsupportedOperationException(TODO.method());
 
 	}
 }
